@@ -17,11 +17,17 @@
 # the destination database already (use rake db:schema:load)
 #
 require 'active_record'
+require 'logger'
 
 class ARDBCopy
-  class SourceDB < ActiveRecord::Base; end
-  class TargetDB < ActiveRecord::Base; end
+  class SourceDB < ActiveRecord::Base
+    self.abstract_class = true
+  end
+  class TargetDB < ActiveRecord::Base
+    self.abstract_class = true
+  end
 
+  
   def initialize(config_file, opts={})
     @copy_schema = opts[:copy_schema]
 
@@ -52,18 +58,18 @@ class ARDBCopy
   def copy_data
     @tables.each do |table_name|
       source_model = Class.new(SourceDB) do
-        set_inheritance_column(:not_sti)
-        set_table_name table_name
+        self.inheritance_column = :_type_disabled
+        self.table_name = table_name
+        
       end
-
       dest_model = Class.new(TargetDB) do
-        set_inheritance_column(:not_sti)
-        set_table_name table_name
+        self.inheritance_column = :_type_disabled
+        self.table_name = table_name
       end
 
       dest_model.delete_all
 
-      puts "Copying #{table_name} (#{source_model.count} lines)..."
+      puts "Copying #{source_model.table_name} (#{source_model.count} lines)..."
 
       i = 0
       source_model.find_in_batches(:batch_size => 10_000) do |src_batch|
